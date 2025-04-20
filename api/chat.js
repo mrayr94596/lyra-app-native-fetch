@@ -41,8 +41,17 @@ const response = await fetch('https://api.openai.com/v1/chat/completions', {
       return res.status(500).json({ error: 'OpenAI API call failed', details: errorText });
     }
 
-const data = await response.json();
-console.log("🧠 OpenAI API raw response:", JSON.stringify(data, null, 2));
+const raw = await response.text();
+console.log("📦 Raw response from OpenAI:", raw);
+
+let data;
+try {
+  data = JSON.parse(raw);
+} catch (e) {
+  console.error("❌ Failed to parse JSON from OpenAI:", e.message);
+  return res.status(500).json({ error: 'Invalid JSON response from OpenAI', raw });
+}
+
 
 if (!data.choices) {
   console.error("⚠️ No choices returned from OpenAI");
