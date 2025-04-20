@@ -17,7 +17,10 @@ if (req.method !== 'POST') {
   }
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+   console.log("🧪 About to send to OpenAI:");
+console.log("Model: gpt-4");
+console.log("Messages:", JSON.stringify(messages, null, 2));
+const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -27,7 +30,8 @@ if (req.method !== 'POST') {
         model: 'gpt-4',
         messages: [
           { role: "system", content: "You are Lyra, a thoughtful AI companion who blends emotional awareness with intelligence and wit." },
-          ...messages
+          ...(Array.isArray(messages) ? messages : [])
+
         ],
       }),
     });
