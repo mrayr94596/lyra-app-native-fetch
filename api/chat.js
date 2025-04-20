@@ -5,20 +5,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { messages } = req.body || {};
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
     return res.status(500).json({ error: 'API key not configured' });
   }
 
-  if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'Missing or invalid messages array' });
-  }
-
   try {
-    console.log("📥 Incoming request body:", JSON.stringify(req.body));
+    // Log the raw body before attempting to destructure
+    console.log("📥 Raw req.body:", req.body);
+
+    const { messages } = req.body || {};
     console.log("📥 Extracted messages:", messages);
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Missing or invalid messages array' });
+    }
 
     console.log("🧪 About to send to OpenAI:");
     console.log("Model: gpt-4");
