@@ -6,89 +6,83 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
+
   if (!apiKey) {
-    console.error("❌ Missing OPENAI_API_KEY");
+    console.error("❌ No API key found in environment");
     return res.status(500).json({ error: 'API key not configured' });
   }
 
-  // INLINE fallback-safe body parser
-  const parseJsonBody = async (req) => {
-    return new Promise((resolve, reject) => {
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk;
-      });
-      req.on('end', () => {
-        try {
-          const parsed = JSON.parse(body);
-          resolve(parsed);
-        } catch (err) {
-          console.error("❌ Failed to parse JSON:", err.message);
-          reject(err);
-        }
-      });
-      req.on('error', (err) => {
-        console.error("❌ Stream error while reading body:", err.message);
-        reject(err);
-      });
-    });
-  };
-
   try {
-    const body = await parseJsonBody(req);
-    console.log("📥 Parsed body object:", body);
+    console.log("📥 Raw req.body type:", typeof req.body);
+    console.log("📥 Raw req.body value:", JSON.stringify(req.body));
 
-    const messages = body?.messages;
-    if (!messages || !Array.isArray(messages)) {
-      console.error("❌ Invalid or missing 'messages' array");
+    // Try accessing messages
+    let messages;
+    try {
+      messages = req.body?.messages;
+    } catch (e) {
+      console.error("❌ Failed to parse or access req.body.messages:", e.message);
+      return res.status(400).json({ error: 'Invalid request body format' });
+    }
+
+    console.log("📩 Extracted messages:", messages);
+
+    if (!Array.isArray(messages)) {
+      console.error("❌ Messages is not a valid array:", messages);
       return res.status(400).json({ error: 'Missing or invalid messages array' });
     }
 
-    console.log("🧠 Sending to OpenAI");
+    const payload = {
+      model: 'gpt-4',
+      messages: [
+        {
+          role: "system",
+          content: "You are Lyra, a thoughtful AI companion who blends emotional awareness with intelligence and wit."
+        },
+        ...messages
+      ]
+    };
+
+    console.log("🚀 Sending payload to OpenAI:", JSON.stringify(payload, null, 2));
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: 'gpt-4',
-        messages: [
-          { role: "system", content: "You are Lyra, a thoughtful AI companion who blends emotional awareness with intelligence and wit." },
-          ...messages
-        ]
-      })
+      body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("❌ OpenAI response error:", errText);
-      return res.status(500).json({ error: 'OpenAI API call failed', details: errText });
-    }
-
     const raw = await response.text();
-    console.log("📦 Raw OpenAI response:", raw);
+
+    if (!response.ok) {
+      console.error("❌ OpenAI API call failed. Status:", response.status);
+      console.error("📦 OpenAI error body:", raw);
+      return res.status(500).json({ error: 'OpenAI API call failed', details: raw });
+    }
 
     let data;
     try {
       data = JSON.parse(raw);
-    } catch (err) {
-      console.error("❌ Could not parse OpenAI response:", err.message);
+    } catch (e) {
+      console.error("❌ Failed to parse OpenAI response:", e.message);
       return res.status(500).json({ error: 'Invalid JSON from OpenAI', raw });
     }
 
+    console.log("✅ OpenAI response parsed successfully:", JSON.stringify(data, null, 2));
+
     if (!data.choices) {
-      console.error("⚠️ No choices returned from OpenAI");
+      console.warn("⚠️ No choices returned from OpenAI");
     }
 
     return res.status(200).json(data);
-
-  } catch (err) {
-    console.error("❌ Caught unexpected error:", err.message);
+  } catch (error) {
+    console.error("❌ Unexpected error in API route:", error);
     return res.status(500).json({
       error: 'Unexpected server error',
-      message: err.message,
-      stack: err.stack
+      message: error.message,
+      stack: error.stack
     });
   }
 }
