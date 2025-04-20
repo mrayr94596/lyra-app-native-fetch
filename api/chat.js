@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   console.error("🔥 Lyra chat function invoked");
-  
-if (req.method !== 'POST') {
+
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -17,10 +17,14 @@ if (req.method !== 'POST') {
   }
 
   try {
-   console.log("🧪 About to send to OpenAI:");
-console.log("Model: gpt-4");
-console.log("Messages:", JSON.stringify(messages, null, 2));
-const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    console.log("📥 Incoming request body:", JSON.stringify(req.body));
+    console.log("📥 Extracted messages:", messages);
+
+    console.log("🧪 About to send to OpenAI:");
+    console.log("Model: gpt-4");
+    console.log("Messages:", JSON.stringify(messages, null, 2));
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -31,7 +35,6 @@ const response = await fetch('https://api.openai.com/v1/chat/completions', {
         messages: [
           { role: "system", content: "You are Lyra, a thoughtful AI companion who blends emotional awareness with intelligence and wit." },
           ...(Array.isArray(messages) ? messages : [])
-
         ],
       }),
     });
@@ -41,32 +44,29 @@ const response = await fetch('https://api.openai.com/v1/chat/completions', {
       return res.status(500).json({ error: 'OpenAI API call failed', details: errorText });
     }
 
-const raw = await response.text();
-console.log("📦 Raw response from OpenAI:", raw);
+    const raw = await response.text();
+    console.log("📦 Raw response from OpenAI:", raw);
 
-let data;
-try {
-  data = JSON.parse(raw);
-} catch (e) {
-  console.error("❌ Failed to parse JSON from OpenAI:", e.message);
-  return res.status(500).json({ error: 'Invalid JSON response from OpenAI', raw });
-}
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      console.error("❌ Failed to parse JSON from OpenAI:", e.message);
+      return res.status(500).json({ error: 'Invalid JSON response from OpenAI', raw });
+    }
 
+    if (!data.choices) {
+      console.error("⚠️ No choices returned from OpenAI");
+    }
 
-if (!data.choices) {
-  console.error("⚠️ No choices returned from OpenAI");
-}
+    return res.status(200).json(data);
 
-return res.status(200).json(data);
-
-} catch (error) {
-  console.error("❌ Unexpected server error:", error);
-  return res.status(500).json({ 
-    error: 'Unexpected server error', 
-    message: error.message, 
-    stack: error.stack 
-  });
-}
-
-
+  } catch (error) {
+    console.error("❌ Unexpected server error:", error);
+    return res.status(500).json({
+      error: 'Unexpected server error',
+      message: error.message,
+      stack: error.stack
+    });
+  }
 }
