@@ -37,9 +37,18 @@ if (req.method !== 'POST') {
       return res.status(500).json({ error: 'OpenAI API call failed', details: errorText });
     }
 
-    const data = await response.json();
-    return res.status(200).json(data);
-  } catch (error) {
-    return res.status(500).json({ error: 'Unexpected server error', message: error.message });
-  }
+const data = await response.json();
+console.log("🧠 OpenAI API raw response:", JSON.stringify(data, null, 2));
+
+if (!data.choices) {
+  console.error("⚠️ No choices returned from OpenAI");
+}
+
+return res.status(200).json(data);
+
+} catch (error) {
+  console.error("❌ Unexpected server error:", error);
+  return res.status(500).json({ error: 'Unexpected server error', message: error.message });
+}
+
 }
