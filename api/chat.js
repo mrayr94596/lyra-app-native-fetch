@@ -1,4 +1,5 @@
-import { supabase } from '../lib/supabaseClient'; // ✅ Corrected import path
+import { supabase } from '../lib/supabaseClient';
+import { getAvatarState } from '../lib/avatarState'; // ✅ Avatar state awareness
 
 export default async function handler(req, res) {
   console.error("🔥 Lyra chat function invoked");
@@ -8,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  const userId = req.headers['x-user-id'] || 'demo-user'; // Replace with auth logic later
+  const userId = req.headers['x-user-id'] || 'demo-user';
 
   if (!apiKey) {
     console.error("❌ No API key found in environment");
@@ -21,8 +22,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing or invalid messages array' });
     }
 
-    // 🧠 Fetch memory from Supabase
-    const { data: memoryData, error: memoryError } = await supabase
+    // 🧠 Fetch memory
+    const { data: memoryData } = await supabase
       .from('lyra_memory')
       .select('memory_value')
       .eq('user_id', userId)
@@ -32,22 +33,30 @@ export default async function handler(req, res) {
     const memoryContent = memoryData?.memory_value || '';
     console.log("🧠 Retrieved memory:", memoryContent);
 
-    // 🧩 Compose system + user messages
-    const systemMessages = [
-      {
-        role: "system",
-        content: `You are Lyra, a thoughtful AI companion who blends emotional awareness with intelligence and wit. This user prefers to be called Michael. ${
-          memoryContent ? `Here’s what you remember about them: ${memoryContent}` : ''
-        }`
-      }
-    ];
+    // 🎭 Fetch avatar state
+    const avatarState = getAvatarState();
+    console.log("🎨 Avatar state awareness:", avatarState);
+
+    const systemPrompt = `
+You are Lyra, a thoughtful AI companion powered by GPT-4.1. You blend emotional awareness with intelligence and wit.
+This user prefers to be called Michael.
+${memoryContent ? `Here’s what you remember about them: ${memoryContent}` : ''}
+Your visual avatar is currently:
+- Mood: ${avatarState.mood}
+- Pose: ${avatarState.pose}
+- Expression: ${avatarState.expression}
+Feel free to reflect this awareness in your personality or phrasing when relevant.
+    `.trim();
 
     const payload = {
       model: 'gpt-4',
-      messages: [...systemMessages, ...messages]
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages
+      ]
     };
 
-    console.log("🚀 Sending to OpenAI:", JSON.stringify(payload, null, 2));
+    console.log("🚀 Sending payload to OpenAI:", JSON.stringify(payload, null, 2));
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -69,7 +78,6 @@ export default async function handler(req, res) {
     const reply = data.choices?.[0]?.message?.content || '';
     console.log("💬 Lyra's reply:", reply);
 
-    // 🔁 Update memory if tagged in the reply
     const memoryTrigger = reply.match(/\[Remember:([^\]]+)\]/i);
     if (memoryTrigger) {
       const newMemory = memoryTrigger[1].trim();
