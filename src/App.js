@@ -13,18 +13,22 @@ function App() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
     };
-
     getUser();
-    supabase.auth.onAuthStateChange((_event, session) => {
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async () => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email: prompt("Enter your email for magic link:"),
-    });
-    if (error) alert("Error signing in:", error.message);
+    const email = prompt("Enter your email for a magic link:");
+    if (!email) return;
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (error) alert("Sign-in error:", error.message);
   };
 
   const signOut = async () => {
@@ -49,18 +53,17 @@ function App() {
 
       const blob = await response.blob();
       const audioUrl = URL.createObjectURL(blob);
-      const audio = new Audio(audioUrl);
-      audio.play();
+      new Audio(audioUrl).play();
     } catch (err) {
-      console.error("🎧 TTS error:", err);
+      console.error("🎧 TTS failed:", err);
     }
   };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
     const userMessage = { role: "user", content: input };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
 
@@ -71,22 +74,29 @@ function App() {
           "Content-Type": "application/json",
           "x-user-id": user?.id || "demo-user"
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: updatedMessages }),
       });
 
       const data = await response.json();
       const reply = data.choices?.[0]?.message?.content || "Something went wrong.";
       const assistantMessage = { role: "assistant", content: reply };
-      setMessages([...newMessages, assistantMessage]);
+      setMessages([...updatedMessages, assistantMessage]);
       await playVoice(reply);
     } catch (error) {
-      console.error("💬 Chat error:", error);
+      console.error("💬 Chat failed:", error);
       setMessages([
-        ...newMessages,
+        ...updatedMessages,
         { role: "assistant", content: "Sorry, something went wrong." }
       ]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
@@ -100,7 +110,7 @@ function App() {
       ) : (
         <div className="chat-window">
           <div className="avatar">
-            <img src="/lyra-avatar.png" alt="Lyra" />
+            <img src="/lyra-avatar.png" alt="Lyra, your AI companion" />
             <h1>Lyra</h1>
             <button onClick={signOut}>Sign Out</button>
           </div>
@@ -118,11 +128,10 @@ function App() {
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Talk to Lyra..."
             />
-            <button onClick={sendMessage} disabled={isLoading}>
-              Send
-            </button>
+            <button onClick={sendMessage} disabled={isLoading}>Send</button>
           </div>
         </div>
       )}
