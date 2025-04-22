@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 
 export default async function handler(req, res) {
   console.error("🔥 Lyra chat function invoked");
@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  const userId = req.headers['x-user-id'] || 'demo-user'; // Replace with auth logic later if needed
+  const userId = req.headers['x-user-id'] || 'demo-user'; // Replace with real auth if needed
 
   if (!apiKey) {
     console.error("❌ No API key found in environment");
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing or invalid messages array' });
     }
 
-    // Retrieve memory for the user
+    // 🧠 Fetch memory
     const { data: memoryData, error: memoryError } = await supabase
       .from('lyra_memory')
       .select('memory_value')
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     const memoryContent = memoryData?.memory_value || '';
     console.log("🧠 Retrieved memory:", memoryContent);
 
-    // Insert memory as a system message if available
+    // 🧩 Build messages payload
     const systemMessages = [
       {
         role: "system",
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     const reply = data.choices?.[0]?.message?.content || '';
     console.log("💬 Lyra's reply:", reply);
 
-    // Extract and update memory if the reply suggests something should be remembered
+    // 📝 Look for memory update tag
     const memoryTrigger = reply.match(/\[Remember:([^\]]+)\]/i);
     if (memoryTrigger) {
       const newMemory = memoryTrigger[1].trim();
@@ -77,11 +77,14 @@ export default async function handler(req, res) {
 
       const { error: upsertError } = await supabase
         .from('lyra_memory')
-        .upsert({
-          user_id: userId,
-          memory_key: 'long_term',
-          memory_value: newMemory
-        }, { onConflict: ['user_id', 'memory_key'] });
+        .upsert(
+          {
+            user_id: userId,
+            memory_key: 'long_term',
+            memory_value: newMemory
+          },
+          { onConflict: ['user_id', 'memory_key'] }
+        );
 
       if (upsertError) {
         console.error("❌ Memory update failed:", upsertError.message);
