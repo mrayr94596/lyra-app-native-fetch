@@ -1,9 +1,12 @@
 {
-  "name": "lyra-app",
+  "type": "module",
+  "name": "lyra-app-native-fetch",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
+    "dotenv": "^16.5.0",
+    "node-fetch": "^3.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1"
