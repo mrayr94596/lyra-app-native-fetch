@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient'; // ✅ Corrected import path
 
 export default async function handler(req, res) {
   console.error("🔥 Lyra chat function invoked");
@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
-  const userId = req.headers['x-user-id'] || 'demo-user'; // Replace with real auth if needed
+  const userId = req.headers['x-user-id'] || 'demo-user'; // Replace with auth logic later
 
   if (!apiKey) {
     console.error("❌ No API key found in environment");
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing or invalid messages array' });
     }
 
-    // 🧠 Fetch memory
+    // 🧠 Fetch memory from Supabase
     const { data: memoryData, error: memoryError } = await supabase
       .from('lyra_memory')
       .select('memory_value')
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     const memoryContent = memoryData?.memory_value || '';
     console.log("🧠 Retrieved memory:", memoryContent);
 
-    // 🧩 Build messages payload
+    // 🧩 Compose system + user messages
     const systemMessages = [
       {
         role: "system",
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     const reply = data.choices?.[0]?.message?.content || '';
     console.log("💬 Lyra's reply:", reply);
 
-    // 📝 Look for memory update tag
+    // 🔁 Update memory if tagged in the reply
     const memoryTrigger = reply.match(/\[Remember:([^\]]+)\]/i);
     if (memoryTrigger) {
       const newMemory = memoryTrigger[1].trim();
